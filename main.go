@@ -12,6 +12,11 @@ import (
 )
 
 var (
+	Version   = "n/a"
+	BuildTime = "n/a"
+)
+
+var (
 	twilioSid    = flag.String("twilio-sid", "", "(required) twilio api account sid")
 	twilioSecret = flag.String("twilio-secret", "", "(required) twilio api account secret")
 	sender       = flag.String("sender", "", "(required) the phone number from which this message will be sent")
@@ -41,6 +46,7 @@ func getRequestBody() (*url.Values, error) {
 }
 
 func main() {
+	log.Printf("twiliosms (v: %s, bt: %s)", Version, BuildTime)
 	flag.Parse()
 	params, err := getRequestBody()
 	if err != nil {
@@ -52,6 +58,7 @@ func main() {
 	if len(*twilioSecret) == 0 {
 		log.Fatal("'twilio-secret' parameter missing")
 	}
+
 	client := &http.Client{}
 	req, _ := http.NewRequest(
 		"POST",
@@ -63,14 +70,19 @@ func main() {
 	req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
 	resp, _ := client.Do(req)
 	if resp.StatusCode >= 200 && resp.StatusCode < 300 {
+		var bodyBytes []byte
 		var data map[string]interface{}
-		bodyBytes, _ := ioutil.ReadAll(resp.Body)
-		err := json.Unmarshal(bodyBytes, &data)
-		if err == nil {
-			log.Println("message sent!")
-			log.Println("id: ", data["sid"])
-			log.Println("status:", data["status"])
+		var err error
+
+		if bodyBytes, err = ioutil.ReadAll(resp.Body); err != nil {
+			panic(err)
 		}
+		if err = json.Unmarshal(bodyBytes, &data); err != nil {
+			panic(err)
+		}
+		log.Println("message sent!")
+		log.Println("id: ", data["sid"])
+		log.Println("status:", data["status"])
 	} else {
 		log.Println("failed to send sms!")
 		log.Fatal(resp.Status)
